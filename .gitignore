@@ -1,0 +1,8 @@
+cat > .gitignore << 'EOF'
+*.parquet
+emails.csv
+enron_spam_data.zip
+__pycache__/
+*.pyc
+.DS_Store
+EOF

@@ -1,0 +1,61 @@
+{
+  "Logistic Regression": {
+    "accuracy": 0.9803,
+    "precision": 0.9698,
+    "recall": 0.9909,
+    "f1_score": 0.9802,
+    "roc_auc": 0.9965,
+    "confusion_matrix": [
+      [
+        2725,
+        25
+      ],
+      [
+        85,
+        2759
+      ]
+    ],
+    "cv_f1_mean": 0.979,
+    "cv_f1_std": 0.0021,
+    "cv_f1_per_fold": [
+      0.9803,
+      0.975,
+      0.9794,
+      0.9794,
+      0.9808
+    ],
+    "dataset_source": "Enron CSV (enron_spam_data.csv)",
+    "train_samples": 22372,
+    "test_samples": 5594
+  },
+  "Random Forest": {
+    "accuracy": 0.9793,
+    "precision": 0.9717,
+    "recall": 0.9865,
+    "f1_score": 0.9791,
+    "roc_auc": 0.9978,
+    "confusion_matrix": [
+      [
+        2713,
+        37
+      ],
+      [
+        79,
+        2765
+      ]
+    ],
+    "oob_score": 0.9792,
+    "cv_f1_mean": 0.9787,
+    "cv_f1_std": 0.0014,
+    "cv_f1_per_fold": [
+      0.9794,
+      0.9808,
+      0.9785,
+      0.9768,
+      0.9779
+    ],
+    "dataset_source": "Enron CSV (enron_spam_data.csv)",
+    "train_samples": 22372,
+    "test_samples": 5594
+  }
+}
