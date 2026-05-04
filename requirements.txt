@@ -1,5 +1,3 @@
-cd "final yaer code"
-cat > requirements.txt << 'EOF'
 streamlit
 scikit-learn
 pandas
@@ -7,4 +5,3 @@ numpy
 matplotlib
 seaborn
 joblib
-EOF
