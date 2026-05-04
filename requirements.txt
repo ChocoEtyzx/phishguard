@@ -1,5 +1,5 @@
 streamlit
-scikit-learn
+scikit-learn==1.X.X
 pandas
 numpy
 matplotlib
