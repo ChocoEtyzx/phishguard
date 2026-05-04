@@ -5,3 +5,7 @@ __pycache__/
 *.pyc
 .DS_Store
 setup_enron.sh
+enron_spam_data.csv
+enron_spam_data.zip
+enron.parquet
+__pycache__/
