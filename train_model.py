@@ -580,7 +580,7 @@ def train_and_save(args: argparse.Namespace | None = None) -> None:
         args = parse_args()
 
     log.info("=" * 60)
-    log.info("PhishGuard Training Pipeline — Group G14 · AKGEC 2026")
+    log.info("PhishGuard Training Pipeline — Group G13 · AKGEC 2026")
     log.info("=" * 60)
 
     # ── Load data ────────────────────────────────────────────

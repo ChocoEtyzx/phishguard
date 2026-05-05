@@ -1,7 +1,7 @@
 """
 Phishing Email Detection System — Streamlit Web Application
 ============================================================
-Group ID  : 2026/CSE/SEC-B/G14
+Group ID  : 2026/CSE/SEC-B/G13
 Members   : Vandit Jain · Rishabh Kumar · Siddharth Panchal · Purnima Ahalawat
 Supervisor: Mr. Santosh Upadhyay — AKGEC, Ghaziabad
 AKTU      : Dr. A.P.J. Abdul Kalam Technical University, Lucknow
@@ -50,6 +50,9 @@ from matplotlib.figure import Figure
 warnings.filterwarnings("ignore")
 log = logging.getLogger(__name__)
 
+# Shared feature class — must be imported so joblib can unpickle the models
+from features import HeuristicFeatures, URGENCY_WORDS  # noqa: F401
+
 # ══════════════════════════════════════════════════════════════
 # PAGE CONFIGURATION  (must be first Streamlit call)
 # ══════════════════════════════════════════════════════════════
@@ -61,7 +64,7 @@ st.set_page_config(
     menu_items={
         "Get Help": None,
         "Report a bug": None,
-        "About": "PhishGuard · AKGEC Final Year Project 2026 · Group G14",
+        "About": "PhishGuard · AKGEC Final Year Project 2026 · Group G13",
     },
 )
 
@@ -214,38 +217,6 @@ MODEL_DESCRIPTIONS: dict[str, str] = {
 }
 
 
-
-# ══════════════════════════════════════════════════════════════
-# DATASET CONFIGURATION
-# ══════════════════════════════════════════════════════════════
-
-DATASET_CONFIG: dict = {
-    "Enron Spam": {
-        "tag":         "enron",
-        "description": "~33,700 real corporate emails (Metsis et al. 2006). "
-                       "Most cited email spam benchmark. Spam/ham labelled.",
-        "emails":      "~33,716",
-        "source":      "Enron corporate archive",
-        "citation":    "Metsis et al. (2006)",
-        "download":    "kaggle datasets download -d wcukierski/enron-email-dataset --unzip",
-        "csv_name":    "enron_spam_data.csv",
-        "metrics_file":"model_metrics_enron.json",
-        "fallback_metrics": "model_metrics.json",
-    },
-    "SpamAssassin": {
-        "tag":         "spamassassin",
-        "description": "~6,000 emails from Apache SpamAssassin public corpus. "
-                       "Widely used alongside Enron for cross-corpus evaluation.",
-        "emails":      "~6,047",
-        "source":      "Apache SpamAssassin Public Corpus",
-        "citation":    "Apache SpamAssassin (2002)",
-        "download":    "kaggle datasets download -d beatrizpaulina/spam-assasin-dataset --unzip",
-        "csv_name":    "spamassassin_spam_data.csv",
-        "metrics_file":"model_metrics_spamassassin.json",
-        "fallback_metrics": None,
-    },
-}
-
 # ══════════════════════════════════════════════════════════════
 # PREPROCESSING (mirrors train_model.py — must stay in sync)
 # ══════════════════════════════════════════════════════════════
@@ -277,36 +248,26 @@ def clean_text(text: str) -> str:
 # ══════════════════════════════════════════════════════════════
 
 @st.cache_data(show_spinner=False)
-def load_metrics(dataset_name: str = "Enron Spam") -> Optional[dict]:
-    """Load metrics JSON for the selected dataset; fall back to default."""
-    cfg = DATASET_CONFIG.get(dataset_name, DATASET_CONFIG["Enron Spam"])
-    candidates = [cfg["metrics_file"]]
-    if cfg.get("fallback_metrics"):
-        candidates.append(cfg["fallback_metrics"])
-    for fname in candidates:
-        if fname and os.path.exists(fname):
-            try:
-                with open(fname, encoding="utf-8") as fh:
-                    return json.load(fh)
-            except (json.JSONDecodeError, OSError) as exc:
-                st.warning(f"Could not parse {fname}: {exc}")
+def load_metrics() -> Optional[dict]:
+    """Load model_metrics.json; return None if missing."""
+    if os.path.exists("model_metrics.json"):
+        try:
+            with open("model_metrics.json", encoding="utf-8") as fh:
+                return json.load(fh)
+        except (json.JSONDecodeError, OSError) as exc:
+            st.warning(f"Could not parse model_metrics.json: {exc}")
     return None
 
 
 @st.cache_resource(show_spinner=False)
-def load_model(model_name: str, dataset_name: str = "Enron Spam"):
-    """Load a serialised sklearn Pipeline for the selected dataset."""
-    tag   = DATASET_CONFIG.get(dataset_name, {}).get("tag", "enron")
-    base  = model_name.replace(" ", "_").lower()
-    # Try dataset-tagged file first, then untagged fallback
-    candidates = [f"model_{base}_{tag}.pkl", f"model_{base}.pkl"]
-    for fname in candidates:
-        if os.path.exists(fname):
-            try:
-                return joblib.load(fname)
-            except Exception as exc:
-                st.error(f"Failed to load {fname}: {exc}")
-                return None
+def load_model(model_name: str):
+    """Load a serialised sklearn Pipeline; return None if file missing."""
+    fname = f"model_{model_name.replace(' ', '_').lower()}.pkl"
+    if os.path.exists(fname):
+        try:
+            return joblib.load(fname)
+        except Exception as exc:
+            st.error(f"Failed to load {fname}: {exc}")
     return None
 
 
@@ -662,18 +623,10 @@ def render_sidebar(metrics: dict) -> str:
             '<div style="text-align:center;padding:10px 0 6px;">'
             '<span style="font-size:3rem;">🛡️</span>'
             '<h2 style="color:#fff;margin:4px 0 0;font-size:1.25rem;">PhishGuard</h2>'
-            '<p style="color:#aaa;font-size:.78rem;margin:0;">AKGEC · Group G14 · 2026</p>'
+            '<p style="color:#aaa;font-size:.78rem;margin:0;">AKGEC · Group G13 · 2026</p>'
             '</div>',
             unsafe_allow_html=True,
         )
-        st.markdown("---")
-
-        dataset_choice = st.selectbox(
-            "📂  Dataset",
-            options=list(DATASET_CONFIG.keys()),
-            help="Select which dataset the models were trained on.",
-        )
-
         st.markdown("---")
 
         model_choice = st.selectbox(
@@ -748,7 +701,7 @@ def render_sidebar(metrics: dict) -> str:
             unsafe_allow_html=True,
         )
 
-    return model_choice, dataset_choice
+    return model_choice
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1171,63 +1124,85 @@ def render_xai_tab(model, model_choice: str) -> None:
 # TAB 4 — DATASET INFO
 # ══════════════════════════════════════════════════════════════
 
-def render_dataset_tab(metrics: dict, dataset_choice: str) -> None:
+def render_dataset_tab(metrics: dict) -> None:
     st.markdown('<span class="section-tag">Dataset</span>', unsafe_allow_html=True)
-    st.markdown("### 📂 Dataset Information")
+    st.markdown("### 📂 Enron Spam Dataset")
 
-    cfg = DATASET_CONFIG.get(dataset_choice, DATASET_CONFIG["Enron Spam"])
-
-    # ── Status badge ──────────────────────────────────────────
     source = ""
     if metrics:
         first_model = next(iter(metrics.values()))
         source = first_model.get("dataset_source", "")
 
-    if source and ("Enron" in source or "CSV" in source or cfg["tag"] in source.lower()):
-        st.success(f"✅ **{dataset_choice} dataset in use:**  `{source}`")
-    else:
+    if "Enron" in source or "CSV" in source:
+        st.success(f"✅ **Real Enron dataset in use:**  `{source}`")
+    elif "Synthetic" in source or not source:
         st.warning(
-            f"⚠️ Models not yet trained on **{dataset_choice}**.  "
-            "See download instructions below."
+            "⚠️ **Running on synthetic data.**  "
+            "Add the Enron CSV for production-quality results."
         )
 
-    # ── Dataset selector tabs ─────────────────────────────────
-    d1, d2 = st.tabs(["📧 Enron Spam", "🛡️ SpamAssassin"])
+    st.markdown("""
+    #### About the Enron Spam Dataset
 
-    for tab, (ds_name, ds_cfg) in zip([d1, d2], DATASET_CONFIG.items()):
-        with tab:
-            is_active = ds_name == dataset_choice
-            if is_active:
-                st.markdown(
-                    '<div class="info-box">🟢 <b>Currently selected dataset</b></div>',
-                    unsafe_allow_html=True,
-                )
+    The **Enron-Spam** corpus is one of the most widely used real-world email
+    datasets in phishing / spam detection research.  It was derived from the
+    Enron email dataset released after the Enron scandal and later annotated
+    for spam/ham classification.
 
-            st.markdown(f"**{ds_cfg['description']}**")
+    | Property | Value |
+    |---|---|
+    | Emails | ~33,716 |
+    | Classes | ham (safe) / spam (phishing-proxy) |
+    | Language | English |
+    | Source | Enron corporate email archive |
+    | Citation | Metsis et al. (2006) |
 
-            st.markdown(f"""
-| Property | Value |
-|---|---|
-| Total Emails | {ds_cfg['emails']} |
-| Source | {ds_cfg['source']} |
-| Citation | {ds_cfg['citation']} |
-| CSV filename | `{ds_cfg['csv_name']}` |
-""")
+    #### How to add the Enron dataset
 
-            st.markdown("#### How to download & train")
-            st.code(f"""# Step 1 — Download
-{ds_cfg['download']}
+    **Option A — Kaggle download (automatic):**
+    """)
+    st.code("""# 1. Install Kaggle CLI
+pip install kaggle
 
-# Step 2 — Convert & label (if needed)
-python3 prepare_{ds_cfg['tag']}.py
+# 2. Place your API key at ~/.kaggle/kaggle.json
+#    (Download from https://www.kaggle.com/settings → API → Create New Token)
 
-# Step 3 — Train models on this dataset
-python train_model.py --dataset {ds_cfg['csv_name']} --tag {ds_cfg['tag']}""", language="bash")
+# 3. Run the training script — it will auto-download
+python train_model.py""", language="bash")
 
-    # ── Current training stats ────────────────────────────────
+    st.markdown("""
+    **Option B — Manual download:**
+    1. Go to [kaggle.com/datasets/wanderfj/enron-spam](https://www.kaggle.com/datasets/wanderfj/enron-spam)
+    2. Download `enron_spam_data.csv`
+    3. Place it in the same folder as `train_model.py`
+    4. Run `python train_model.py`
+
+    **Option C — CLI argument:**
+    """)
+    st.code("python train_model.py --dataset /path/to/enron_spam_data.csv", language="bash")
+
+    st.markdown("""
+    #### Accepted CSV formats
+
+    The loader automatically detects these column name variants:
+
+    | Text column alias | Label column alias | Phishing label values |
+    |---|---|---|
+    | `text`, `message`, `body`, `content`, `email_body` | `label`, `spam`, `class`, `category`, `is_spam` | `spam`, `1`, `phishing`, `yes`, `true` |
+
+    Any other value is treated as **Safe**.
+
+    #### Why Enron matters
+
+    Training on real email corpora dramatically improves generalisation:
+    - Covers genuine linguistic variation in business email
+    - Includes novel phishing patterns not in hand-crafted templates
+    - Provides thousands of real ham examples, improving specificity
+    - Reduces false positive rate on legitimate corporate communication
+    """)
+
     if metrics:
-        st.markdown("---")
-        st.markdown("#### 📊 Current Model Training Stats")
+        st.markdown("#### Current model training info")
         for name, m in metrics.items():
             cols = st.columns(4)
             cols[0].metric(f"{name} — Train", f"{m.get('train_samples', 0):,}")
@@ -1289,6 +1264,135 @@ def render_history_tab() -> None:
             st.rerun()
 
 
+# ══════════════════════════════════════════════════════════════
+# TAB 6 — VIVA PREPARATION
+# ══════════════════════════════════════════════════════════════
+
+def render_viva_tab() -> None:
+    st.markdown('<span class="section-tag">Academic Prep</span>', unsafe_allow_html=True)
+    st.markdown("### 🎓 Viva Preparation Guide")
+    st.caption("Examiner Q&A aligned to the project report.")
+
+    qa_pairs = [
+        (
+            "Why TF-IDF over Word2Vec or BERT?",
+            "TF-IDF is fully interpretable — every feature is a readable word/bigram — "
+            "and computationally cheap (no GPU needed). Phishing text is keyword-heavy: "
+            "the presence of 'urgent', 'verify', 'click' is the dominant signal. "
+            "Word embeddings capture richer semantics but need more data and lose "
+            "direct explainability. DistilBERT is a valid future extension for "
+            "semantic phishing that avoids trigger keywords entirely.",
+        ),
+        (
+            "How did you handle class imbalance?",
+            "SMOTEENN-style balancing: (1) SMOTE analogue — oversample minority class "
+            "with word-level Bernoulli dropout (~10–25% word removal) to create diverse "
+            "near-duplicates rather than exact copies; (2) ENN analogue — remove "
+            "majority-class samples with no urgency vocabulary AND no URL token. "
+            "Also used class_weight='balanced' in both classifiers and stratified k-fold CV.",
+        ),
+        (
+            "Explain LIME and how it differs from SHAP.",
+            "LIME explains a single prediction by perturbing the input (randomly removing "
+            "words) and fitting a linear model locally around that point. It is fast but "
+            "approximate — no global consistency guarantee. SHAP uses game-theoretic "
+            "Shapley values: SHAP values sum to the model output (efficiency property) "
+            "and satisfy consistency + missingness axioms. LIME values do not. Here: "
+            "LIME provides per-prediction word attribution; SHAP-style global importance "
+            "uses |coefficients| (LR) / Gini decrease (RF).",
+        ),
+        (
+            "Why is Recall more important than Precision here?",
+            "False Negative = phishing email classified as safe → attack succeeds. "
+            "This can cause credential theft or financial loss. False Positive = safe "
+            "email flagged → inconvenience only. In security, the asymmetric cost of "
+            "misses far outweighs false alarms, so we optimise for high Recall while "
+            "keeping Precision acceptable.",
+        ),
+        (
+            "How do you know the model isn't overfitting?",
+            "5-fold stratified cross-validation on the training set gives CV F1 ± σ. "
+            "Low σ across folds confirms stable generalisation. We evaluate on a 20% "
+            "held-out test set not seen during training. The small gap between CV and "
+            "test scores confirms the model generalises. For Random Forest, the OOB "
+            "accuracy provides a free additional out-of-bag estimate.",
+        ),
+        (
+            "Why FeatureUnion rather than just TF-IDF?",
+            "TF-IDF captures vocabulary but misses structural signals: high URL density, "
+            "excessive capitalisation, or dense urgency-word clusters are patterns present "
+            "in feature space but not as distinct TF-IDF tokens. FeatureUnion concatenates "
+            "~30 000 TF-IDF features with 12 hand-crafted heuristic features, improving "
+            "recall on novel phishing emails that avoid common trigger keywords.",
+        ),
+        (
+            "Why was the Enron dataset used / what is it?",
+            "The Enron-Spam corpus (~33 700 emails) is the most widely cited real-world "
+            "email benchmark. It was derived from Enron corporate email (released post-"
+            "scandal) and annotated spam/ham. Using it ensures: genuine linguistic "
+            "variation, novel phishing patterns not in hand-crafted templates, thousands "
+            "of real ham examples (reducing false positive rate), and reproducible "
+            "academic benchmarking. A synthetic fallback is used when the CSV is absent.",
+        ),
+        (
+            "What are the system's main limitations?",
+            "1) No email header analysis (SPF, DKIM, Return-Path, sender domain). "
+            "2) No URL reputation checking via external API (e.g. VirusTotal). "
+            "3) Static vocabulary — adversarial rephrasing may evade detection. "
+            "4) LIME quality depends on n_samples (150 here = reasonable, not exact). "
+            "5) Synthetic fallback data diverges from real-world email distribution.",
+        ),
+        (
+            "What are future improvements?",
+            "Short-term: DistilBERT for semantic understanding; URL reputation API. "
+            "Medium-term: email header features (SPF/DKIM/Return-Path); active learning "
+            "loop for uncertain predictions. "
+            "Long-term: real-time Gmail/Outlook plugin; multilingual phishing detection; "
+            "adversarial training against paraphrase attacks.",
+        ),
+    ]
+
+    for q, a in qa_pairs:
+        with st.expander(f"❓  {q}"):
+            st.markdown(
+                f'<div class="tip-box" style="font-size:.9rem;line-height:1.65;">'
+                f"💡 {a}</div>",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("---")
+    st.markdown("#### 📋 Live Demo Checklist")
+    steps = [
+        "Analyse Email → paste phishing example → explain confidence scores & probability bars",
+        "Toggle XAI on → walk through LIME highlighted text and attribution chart",
+        "Switch model (LR ↔ RF) → comment on speed vs accuracy trade-off",
+        "Show preprocessed text expander → explain clean_text() pipeline",
+        "Performance Metrics → confusion matrix, TP/FP/FN/TN, why Recall matters",
+        "Feature Insights → SHAP-style global importance, FeatureUnion pipeline diagram",
+        "Mention 5-fold CV + OOB score as evidence of generalisation",
+        "Dataset tab → explain Enron corpus, how to load it, synthetic fallback",
+        "Discuss SMOTEENN class balancing strategy",
+        "State limitations: no header analysis, no URL API, adversarial rephrasing",
+        "Propose improvements: DistilBERT, active learning, real-time URL checking",
+    ]
+    for i, step in enumerate(steps, 1):
+        st.checkbox(f"Step {i}: {step}", key=f"demo_{i}")
+
+    st.markdown("---")
+    st.markdown("#### 📐 Key Formulae")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.latex(r"\text{TF-IDF}(t,d) = \text{TF}(t,d) \times \log\frac{N}{df(t)}")
+        st.latex(r"\text{Precision} = \frac{TP}{TP + FP}")
+        st.latex(r"\text{Recall} = \frac{TP}{TP + FN}")
+        st.latex(r"F_1 = 2 \times \frac{\text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}}")
+    with col_b:
+        st.latex(r"\text{AUC} = \int_0^1 \text{TPR}(t)\, d\text{FPR}(t)")
+        st.latex(r"\phi_i = \sum_{S \subseteq F \setminus \{i\}} \frac{|S|!(|F|-|S|-1)!}{|F|!}[v(S\cup\{i\})-v(S)]")
+        st.caption("Shapley value formula — SHAP theoretical foundation")
+        st.latex(r"\text{Gini}(t) = 1 - \sum_{k} p_k^2")
+        st.caption("Gini impurity — used in Random Forest feature importance")
+
 
 # ══════════════════════════════════════════════════════════════
 # MAIN
@@ -1301,7 +1405,7 @@ def main() -> None:
       <span style="font-size:3.2rem;">🛡️</span>
       <div>
         <h1>PhishGuard</h1>
-        <p>Email Phishing Detection System · AKGEC Ghaziabad · Group G14 · May 2026</p>
+        <p>Email Phishing Detection System · AKGEC Ghaziabad · Group G13 · May 2026</p>
         <p style="font-size:.8rem;opacity:.6;">
           Logistic Regression &amp; Random Forest · TF-IDF + 12 Heuristics ·
           Enron Dataset · LIME Explainability · SHAP Feature Importance
@@ -1320,9 +1424,8 @@ def main() -> None:
         st.stop()
 
     # ── Sidebar ───────────────────────────────────────────────
-    model_choice, dataset_choice = render_sidebar(metrics)
-    metrics = load_metrics(dataset_choice)
-    model        = load_model(model_choice, dataset_choice)
+    model_choice = render_sidebar(metrics)
+    model        = load_model(model_choice)
 
     if not model:
         st.error(
@@ -1336,15 +1439,17 @@ def main() -> None:
         "🔍 Analyse Email",
         "📊 Performance Metrics",
         "🔎 Feature Insights & XAI",
-        "📂 Dataset Info",
+        "📂 Dataset & Enron Info",
         "🕑 History",
+        "🎓 Viva Prep",
     ])
 
     with tabs[0]: render_analysis_tab(model, model_choice)
     with tabs[1]: render_metrics_tab(metrics, model_choice)
     with tabs[2]: render_xai_tab(model, model_choice)
-    with tabs[3]: render_dataset_tab(metrics, dataset_choice)
+    with tabs[3]: render_dataset_tab(metrics)
     with tabs[4]: render_history_tab()
+    with tabs[5]: render_viva_tab()
 
 
 if __name__ == "__main__":
